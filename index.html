@@ -3,138 +3,55 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>주차 차량 확인기 (모바일 최적화 + 마이크 세션)</title>
+<title>주차 차량 확인기 (Android 최적화 음성인식)</title>
 <style>
-  :root {
-    --primary: #2b4eff;
-    --bg: #f9fafb;
-    --text: #111827;
-    --muted: #6b7280;
-    --card: #ffffff;
-    --shadow: 0 2px 6px rgba(0,0,0,0.08);
-  }
-  * { box-sizing: border-box; }
-  body {
-    font-family: "Pretendard", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    margin: 0;
-    padding: 20px;
-    line-height: 1.5;
-  }
-  .container {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-  h2 {
-    color: var(--primary);
-    margin: 0 0 12px;
-    font-size: 1.6rem;
-  }
-  .desc {
-    margin: 0 0 16px;
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 8px;
-    align-items: center;
-  }
-  input[type="text"] {
-    font-size: 1.1rem;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-    background: #fff;
-    width: 100%;
-    text-align: center;
-    box-shadow: var(--shadow);
-  }
-  button {
-    font-size: 0.95rem;
-    padding: 10px 14px;
-    border: none;
-    background: var(--primary);
-    color: white;
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-  }
-  button.secondary {
-    background: #111827;
-  }
-  button.ghost {
-    background: #e5e7eb;
-    color: #111827;
-  }
-  .panel {
-    background: var(--card);
-    box-shadow: var(--shadow);
-    border-radius: 14px;
-    padding: 12px;
-    margin-top: 12px;
-  }
-  .panel h4 {
-    margin: 8px 0 6px;
-  }
-  .grid-two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  select, input[type="checkbox"] {
-    width: 100%;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
-    background: #fff;
-  }
-  #status { margin-top: 10px; font-weight: 600; color: #111827; }
-  table {
-    margin: 16px auto 0;
-    border-collapse: collapse;
-    width: 100%;
-    background: white;
-    box-shadow: var(--shadow);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  th, td {
-    border-bottom: 1px solid #eee;
-    padding: 10px;
-    text-align: center;
-    font-size: 0.95rem;
-  }
-  th { background: #f3f4f6; }
-  .note {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
+  :root { --primary:#2563eb; --bg:#f8fafc; --text:#0f172a; --muted:#64748b; --card:#ffffff; --bad:#b91c1c; --good:#065f46; --shadow:0 2px 8px rgba(2,6,23,.08); }
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",Roboto,Segoe UI,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;line-height:1.5}
+  .container{max-width:720px;margin:0 auto}
+  h2{color:var(--primary);margin:0 0 12px;font-size:1.6rem}
+  .desc{margin:0 0 16px;color:var(--muted);font-size:.95rem}
+  .row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+  input[type="text"]{font-size:1.2rem;padding:12px 14px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;width:100%;text-align:center;box-shadow:var(--shadow)}
+  button{font-size:.95rem;padding:10px 14px;border:none;background:var(--primary);color:white;border-radius:12px;box-shadow:var(--shadow)}
+  button.secondary{background:#0f172a}
+  button.ghost{background:#e2e8f0;color:#0f172a}
+  .panel{background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;margin-top:12px}
+  .panel h4{margin:8px 0 6px}
+  .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  select,input[type="checkbox"]{width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;background:#fff}
+  #status{margin-top:10px;font-weight:700}
+  #status.bad{color:var(--bad)}
+  #status.good{color:var(--good)}
+  table{margin:16px auto 0;border-collapse:collapse;width:100%;background:white;box-shadow:var(--shadow);border-radius:12px;overflow:hidden}
+  th,td{border-bottom:1px solid #e2e8f0;padding:10px;text-align:center;font-size:.95rem}
+  th{background:#f1f5f9}
+  .note{color:var(--muted);font-size:.9rem}
+  details{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-top:10px}
+  summary{cursor:pointer}
+  pre{background:#0b1020;color:#d1e7ff;padding:10px;border-radius:8px;overflow:auto;font-size:12px;max-height:200px}
 </style>
 </head>
 <body>
   <div class="container">
-    <h2>🎤 주차 차량 확인기</h2>
-    <p class="desc">스마트폰에서 음성으로 번호를 말하면, 등록 여부를 짧게 안내합니다. 마이크 권한은 <strong>세션</strong>으로 유지되어 팝업을 자주 보지 않도록 했습니다.</p>
+    <h2>🎤 주차 차량 확인기 (Android용)</h2>
+    <p class="desc">안드로이드 + Chrome에서 동작하도록 최적화했습니다. HTTPS 권장, 페이지 진입 후 반드시 버튼을 한번 눌러 시작하세요.</p>
 
     <div class="row">
       <input type="text" id="carInput" placeholder="4자리 번호 입력" inputmode="numeric" autocomplete="off" />
       <button id="btnCheck">조회</button>
-      <button id="btnVoice">🎙️ 음성조회</button>
+      <button id="btnVoice">🎙️ 음성조회(1회)</button>
     </div>
 
     <div id="status"></div>
 
     <table id="resultTable" style="display:none;">
-      <thead>
-        <tr><th>번호</th><th>색상</th><th>차종</th><th>주차스티커</th></tr>
-      </thead>
+      <thead><tr><th>번호</th><th>색상</th><th>차종</th><th>주차스티커</th></tr></thead>
       <tbody></tbody>
     </table>
 
     <div class="panel">
-      <h4>🔧 마이크 세션 옵션</h4>
+      <h4>🔧 마이크/인식 옵션</h4>
       <div class="grid-two">
         <label>
           <span class="note">세션 유지시간</span>
@@ -146,30 +63,38 @@
           </select>
         </label>
         <label>
-          <span class="note">간단 음성 안내(등록/미등록만)</span>
+          <span class="note">음성 안내</span>
           <select id="voiceMode">
-            <option value="short" selected>간단</option>
-            <option value="full">상세</option>
+            <option value="short" selected>간단(등록/미등록)</option>
+            <option value="full">상세(색상/차종 포함)</option>
           </select>
         </label>
       </div>
       <div class="grid-two" style="margin-top:8px;">
         <label style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="autoRestart" checked />
-          <span>자동 재인식(다음 번호 계속 받기)</span>
+          <span>자동 재인식(세션 중)</span>
         </label>
-        <div style="display:flex; gap:8px; justify-content:flex-end;">
-          <button class="ghost" id="btnMicPermission">권한상태 확인</button>
-          <button class="secondary" id="btnStartSession">세션 시작</button>
-          <button class="ghost" id="btnStopSession">세션 종료</button>
-        </div>
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="continuousMode" />
+          <span>연속 인식(Chrome용)</span>
+        </label>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;margin-top:8px;">
+        <button class="ghost" id="btnEnvCheck">환경 점검</button>
+        <button class="secondary" id="btnStartSession">세션 시작</button>
+        <button class="ghost" id="btnStopSession">세션 종료</button>
       </div>
       <p class="note" id="permHint" style="margin:8px 0 0;"></p>
+      <details><summary>디버그 로그 보기</summary><pre id="debug"></pre></details>
     </div>
   </div>
 
 <script>
-// ===== 차량 데이터 (필요 시 직접 수정) =====
+// ===== 유틸 =====
+function logDebug(...args){ const el=document.getElementById('debug'); el.textContent += args.map(a=>typeof a==='object'?JSON.stringify(a,null,2):String(a)).join(' ') + "\\n"; }
+
+// ===== 차량 데이터 =====
 const carData = [
   { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "레이 " },
   { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "C36 아우디" },
@@ -189,216 +114,177 @@ const table = document.getElementById("resultTable");
 const tbody = table.querySelector("tbody");
 const btnCheck = document.getElementById("btnCheck");
 const btnVoice = document.getElementById("btnVoice");
-const btnMicPermission = document.getElementById("btnMicPermission");
+const btnEnvCheck = document.getElementById("btnEnvCheck");
 const btnStartSession = document.getElementById("btnStartSession");
 const btnStopSession = document.getElementById("btnStopSession");
 const sessionMinutesEl = document.getElementById("sessionMinutes");
 const voiceModeEl = document.getElementById("voiceMode");
 const autoRestartEl = document.getElementById("autoRestart");
+const continuousModeEl = document.getElementById("continuousMode");
 const permHintEl = document.getElementById("permHint");
 
-// ===== 상태 =====
-let recognition = null;       // 현재 음성인식 객체
-let micStream = null;         // getUserMedia로 확보한 마이크 스트림(세션 유지용)
-let sessionTimer = null;      // 세션 타이머
-let sessionActive = false;    // 세션 동작 여부
-let restarting = false;       // 안전한 재시작 플래그
+let recognition=null, micStream=null, sessionTimer=null, sessionActive=false, restarting=false, wakeLock=null;
 
-// ===== 이벤트 바인딩 =====
-btnCheck.addEventListener("click", checkCar);
-btnVoice.addEventListener("click", startVoiceOnce);
-btnMicPermission.addEventListener("click", showMicPermission);
-btnStartSession.addEventListener("click", startMicSession);
-btnStopSession.addEventListener("click", stopMicSession);
-inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") checkCar(); });
-
-// ===== 공통 함수 =====
-function speak(text) {
-  try {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "ko-KR";
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
-  } catch(e) {
-    console.warn("TTS 실패:", e);
-  }
+// ===== 스피치(TTS) =====
+function speak(text){
+  try { const u=new SpeechSynthesisUtterance(text); u.lang="ko-KR"; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+  catch(e){ logDebug("TTS 실패", e); }
 }
 
-function showResult(data) {
-  tbody.innerHTML = `
-    <tr>
-      <td>${data.번호}</td>
-      <td>${data.색상}</td>
-      <td>${data.차종}</td>
-      <td>${data.주차스티커}</td>
-    </tr>
-  `;
-  table.style.display = "table";
-  statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
+// ===== 결과 표시 =====
+function showResult(data){
+  tbody.innerHTML = `<tr><td>${data.번호}</td><td>${data.색상}</td><td>${data.차종}</td><td>${data.주차스티커}</td></tr>`;
+  table.style.display="table";
+  statusEl.textContent="✅ 차량 정보가 확인되었습니다."; statusEl.className="good";
 }
-
-function clearResult(msg = "") {
-  table.style.display = "none";
-  tbody.innerHTML = "";
-  statusEl.textContent = msg;
+function clearResult(msg=""){
+  table.style.display="none"; tbody.innerHTML=""; statusEl.textContent=msg; statusEl.className = msg?"bad":"";
 }
 
 // ===== 조회 =====
-function checkCar() {
-  const num = inputEl.value.replace(/\\D/g, "").padStart(4, "0");
-  if (!num) {
-    speak("번호를 입력하거나 말씀해주세요.");
-    return;
-  }
-  const found = carData.find(c => c.번호 === num);
-  if (found) {
+function checkCar(){
+  const num = inputEl.value.replace(/\D/g,"").slice(-4).padStart(4,"0");
+  if(!num || num==="0000"){ speak("번호를 입력하거나 말씀해주세요."); return; }
+  const found = carData.find(c=>c.번호===num);
+  if(found){
     showResult(found);
-    const voiceMode = voiceModeEl.value;
-    if (voiceMode === "short") {
-      speak(`${num}번 등록되어 있습니다.`);
-    } else {
-      speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`);
-    }
-  } else {
+    if(voiceModeEl.value==="short") speak(`${num}번 등록되어 있습니다.`);
+    else speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`);
+  }else{
     clearResult(`🚫 ${num}번 차량은 등록되지 않았습니다.`);
     speak(`${num}번 등록되지 않았습니다.`);
   }
 }
 
-// ===== 권한 상태 =====
-async function showMicPermission() {
-  let msg = "브라우저가 권한 상태 조회를 지원하지 않습니다. HTTPS에서 실행 중인지 확인해주세요.";
-  if ("permissions" in navigator) {
-    try {
-      const status = await navigator.permissions.query({ name: "microphone" });
-      msg = `마이크 권한 상태: ${status.state} (granted/denied/prompt).`;
-      status.onchange = () => { permHintEl.textContent = `마이크 권한 상태 변경: ${status.state}`; };
-    } catch (e) {
-      msg = "권한 API 조회 실패. iOS Safari에서는 항상 'prompt'일 수 있습니다.";
-    }
-  }
-  if (location.protocol !== "https:") {
-    msg += "  🔒 보안을 위해 HTTPS에서 사용할 때 권한 유지가 더 안정적입니다.";
-  }
-  permHintEl.textContent = msg;
+// ===== 환경 점검 =====
+async function envCheck(){
+  const isHttps = location.protocol==="https:";
+  const ua = navigator.userAgent;
+  const isAndroid = /Android/i.test(ua);
+  const isChrome = /Chrome/i.test(ua);
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const srSupported = !!window.SpeechRecognition;
+
+  const msg=[
+    `프로토콜: ${location.protocol} (${isHttps ? "✅ HTTPS 권장" : "⚠️ HTTPS 권장"})`,
+    `플랫폼: ${isAndroid?"Android":"기타"}`,
+    `브라우저: ${isChrome?"Chrome":"기타"}`,
+    `SpeechRecognition 지원: ${srSupported ? "✅ 지원" : "❌ 미지원"}`,
+    `온라인 상태: ${navigator.onLine ? "온라인" : "오프라인"}`
+  ];
+  statusEl.textContent = srSupported ? "음성인식 지원 브라우저입니다." : "이 브라우저는 음성인식을 지원하지 않습니다.";
+  statusEl.className = srSupported ? "good" : "bad";
+  permHintEl.textContent = isHttps ? "HTTPS에서 권한 유지가 더 안정적입니다." : "가능하면 HTTPS로 접속하세요.";
+  document.getElementById("debug").textContent = msg.join("\n");
+}
+
+// ===== Wake Lock (화면 꺼짐 방지) =====
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); logDebug("WakeLock 획득"); }
+  }catch(e){ logDebug("WakeLock 실패", e && e.name); }
 }
 
 // ===== 세션 컨트롤 =====
-async function startMicSession() {
-  if (sessionActive) return;
-  // 1) 마이크 스트림 확보(권한 팝업 1회)
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    statusEl.textContent = "❌ 마이크 접근이 거부되었습니다. 브라우저 설정에서 허용해주세요.";
-    speak("마이크 접근이 거부되었습니다.");
-    return;
+async function startMicSession(){
+  if(sessionActive) return;
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!window.SpeechRecognition){
+    alert("이 브라우저는 음성인식을 지원하지 않습니다. Android Chrome에서 이용해주세요.");
+    statusEl.className="bad"; statusEl.textContent="❌ 음성인식 미지원 브라우저"; return;
   }
-  sessionActive = true;
-  statusEl.textContent = "🎧 마이크 세션 시작됨. 번호를 말씀해주세요.";
-  // 2) 세션 타이머
-  const minutes = parseInt(sessionMinutesEl.value, 10) || 5;
-  if (sessionTimer) clearTimeout(sessionTimer);
-  sessionTimer = setTimeout(() => {
-    stopMicSession();
-    statusEl.textContent = "⏱️ 세션 시간이 종료되었습니다.";
-    speak("세션이 종료되었습니다.");
-  }, minutes * 60 * 1000);
-  // 3) 음성 인식 루프 시작
-  startRecognitionLoop();
-}
-
-function stopMicSession() {
-  sessionActive = false;
-  if (sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
-  if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; }
-  if (micStream) {
-    micStream.getTracks().forEach(t => t.stop());
-    micStream = null;
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+  }catch(e){
+    statusEl.className="bad"; statusEl.textContent="❌ 마이크 접근이 거부되었습니다. 설정에서 허용해주세요.";
+    speak("마이크 접근이 거부되었습니다."); logDebug("getUserMedia error:", e && e.name); return;
   }
-  statusEl.textContent = "🛑 마이크 세션이 종료되었습니다.";
+
+  sessionActive=true; statusEl.className="good"; statusEl.textContent="🎧 마이크 세션 시작됨. 번호를 말씀해주세요.";
+  const minutes = parseInt(sessionMinutesEl.value,10)||5;
+  if(sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(()=>{ stopMicSession(); statusEl.textContent="⏱️ 세션 시간이 종료되었습니다."; speak("세션이 종료되었습니다."); }, minutes*60*1000);
+
+  await requestWakeLock();
+  startRecognitionLoop(true);
 }
 
-function startVoiceOnce() {
-  // 세션 없이 한 번만
-  recognition && recognition.stop();
-  recognition = null;
-  createRecognition();
-  if (!recognition) return;
-  recognition.start();
+function stopMicSession(){
+  sessionActive=false;
+  if(sessionTimer){ clearTimeout(sessionTimer); sessionTimer=null; }
+  if(recognition){ try{ recognition.onend=null; recognition.stop(); }catch(e){} recognition=null; }
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock=null; }
+  statusEl.textContent="🛑 마이크 세션이 종료되었습니다."; statusEl.className="";
 }
 
-// 연속 인식 루프(세션 중)
-function startRecognitionLoop() {
-  if (!sessionActive) return;
-  if (recognition) return; // 중복 방지
-  createRecognition();
-  if (!recognition) return;
-  try { recognition.start(); } catch(e) { console.warn("start 실패", e); }
+function startVoiceOnce(){
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!window.SpeechRecognition){ alert("Android Chrome에서 이용해주세요."); statusEl.className="bad"; statusEl.textContent="❌ 음성인식 미지원"; return; }
+  recognition && recognition.stop(); recognition=null;
+  createRecognition(); if(!recognition) return;
+  try{ recognition.start(); }catch(e){ logDebug("start 실패", e && e.name); }
 }
 
-function createRecognition() {
-  if (!("webkitSpeechRecognition" in window)) {
-    alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬(안드로이드) 또는 iOS 사파리 최신 버전을 사용해주세요.");
-    return;
+// 인식 루프
+function startRecognitionLoop(fromGesture=false){
+  if(!sessionActive) return;
+  if(recognition) return;
+  createRecognition(); if(!recognition) return;
+  try{ recognition.start(); }catch(e){
+    logDebug("loop start 실패", e && e.name);
+    if(!fromGesture){ statusEl.className="bad"; statusEl.textContent="브라우저 정책상 자동 재시작이 차단되었습니다. '세션 시작'을 다시 누르세요."; }
   }
-  const r = new webkitSpeechRecognition();
-  r.lang = "ko-KR";
-  r.interimResults = false;
-  r.maxAlternatives = 1;
-
-  r.onstart = () => { statusEl.textContent = "🎙️ 번호를 말씀해주세요..."; };
-  r.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    const num = (transcript || "").replace(/[^0-9]/g, "");
-    if (num.length >= 2 && num.length <= 4) {
-      inputEl.value = num;
-      checkCar();
-    } else {
-      statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도합니다.`;
-      speak("번호를 정확히 말씀해주세요.");
-    }
-  };
-  r.onend = () => {
-    // 세션 중이고 자동 재인식 옵션이 켜져 있으면 재시작
-    if (sessionActive && autoRestartEl.checked && !restarting) {
-      restarting = true;
-      setTimeout(() => {
-        restarting = false;
-        startRecognitionLoop();
-      }, 200); // 짧은 딜레이로 안전 재시작
-    } else {
-      recognition = null;
-    }
-  };
-  r.onerror = (event) => {
-    let errorMsg = "❌ 음성 인식 오류";
-    switch(event.error) {
-      case "not-allowed":
-        errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요.";
-        break;
-      case "no-speech":
-        errorMsg = "❌ 음성이 감지되지 않았습니다. 다시 말씀해주세요.";
-        break;
-      case "network":
-        errorMsg = "❌ 네트워크 상태를 확인해주세요.";
-        break;
-      case "service-not-allowed":
-        errorMsg = "❌ 보안 문제로 서비스가 거부되었습니다. HTTPS 환경에서 사용해주세요.";
-        break;
-      default:
-        errorMsg = `❌ 오류: ${event.error}`;
-    }
-    statusEl.textContent = errorMsg;
-    if (sessionActive && autoRestartEl.checked) {
-      // 오류 후에도 세션 내에서 재시도
-      setTimeout(() => startRecognitionLoop(), 400);
-    } else {
-      recognition = null;
-    }
-  };
-  recognition = r;
 }
+
+function createRecognition(){
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!window.SpeechRecognition) return;
+  const r = new window.SpeechRecognition();
+  r.lang="ko-KR";
+  r.interimResults=false;
+  r.maxAlternatives=1;
+  r.continuous= !!continuousModeEl.checked; // Chrome에서는 연속 모드가 더 잘 동작할 수 있음
+
+  r.onstart = ()=>{ statusEl.textContent="🎙️ 번호를 말씀해주세요..."; };
+  r.onresult = (e)=>{
+    const transcript = e.results[0][0].transcript || "";
+    const num = transcript.replace(/[^0-9]/g,"").slice(-4);
+    logDebug("onresult:", transcript, "→", num);
+    if(num && num.length>=2 && num.length<=4){ inputEl.value=num.padStart(4,"0"); checkCar(); }
+    else{ statusEl.className="bad"; statusEl.textContent=`⚠️ "${transcript}"에서 번호 추출 실패. 다시 시도합니다.`; speak("번호를 정확히 말씀해주세요."); }
+  };
+  r.onend = ()=>{
+    if(sessionActive && autoRestartEl.checked && !restarting){
+      restarting=true; setTimeout(()=>{ restarting=false; startRecognitionLoop(false); }, 250);
+    }else{ recognition=null; }
+  };
+  r.onerror = (ev)=>{
+    const map={
+      "not-allowed":"❌ 마이크 권한이 거부되었습니다. 설정에서 허용해주세요.",
+      "no-speech":"❌ 음성이 감지되지 않았습니다. 다시 말씀해주세요.",
+      "network":"❌ 네트워크 상태를 확인해주세요.",
+      "aborted":"인식이 중단되었습니다. 다시 시도합니다.",
+      "service-not-allowed":"❌ 보안 문제로 서비스가 거부되었습니다. HTTPS 환경에서 사용해주세요."
+    };
+    statusEl.className="bad"; statusEl.textContent=map[ev.error]||(`❌ 오류: ${ev.error}`);
+    logDebug("onerror:", ev.error);
+    if(sessionActive && autoRestartEl.checked) setTimeout(()=>startRecognitionLoop(false), 600);
+    else recognition=null;
+  };
+  recognition=r;
+}
+
+// ===== 이벤트 바인딩 =====
+btnCheck.addEventListener("click", checkCar);
+btnVoice.addEventListener("click", startVoiceOnce);
+btnEnvCheck.addEventListener("click", envCheck);
+btnStartSession.addEventListener("click", startMicSession);
+btnStopSession.addEventListener("click", stopMicSession);
+inputEl.addEventListener("keydown", (e)=>{ if(e.key==="Enter") checkCar(); });
+
+// 초기 환경 점검
+window.addEventListener("load", envCheck);
 </script>
 </body>
 </html>
