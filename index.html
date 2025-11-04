@@ -49,7 +49,7 @@
   <h2>🎤 주차 차량 확인기</h2>
 
   <input type="text" id="carInput" placeholder="4자리 번호 입력">
-  <button onclick="checkCar()">조회</button>
+  <button onclick="checkCar(false)">조회</button>
   <button onclick="startVoice()">🎙️ 음성으로 조회</button>
 
   <div id="status"></div>
@@ -62,7 +62,7 @@
   </table>
 
   <script>
-  // 🔹 차량 데이터 (HTML 안에서 직접 수정/추가 가능)
+  // 🔹 차량 데이터
   const carData = [
   { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "레이 " },
   { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "C36 아우디" },
@@ -80,30 +80,24 @@
   const table = document.getElementById("resultTable");
   const tbody = table.querySelector("tbody");
   
-  // 현재 음성 인식 객체를 저장하는 변수
   let recognition; 
-
-  // **⭐추가: 마이크 권한 유지를 위한 플래그 (HTTPS 환경 필수)**
-  let isContinuous = false; 
+  let isContinuous = false; // 연속 인식 모드 플래그
 
   inputEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") checkCar();
+    if (e.key === "Enter") checkCar(false);
   });
 
   // 🔹 차량 검색 함수
-  function checkCar() {
-    // 음성 인식 중이었으면 종료 처리
-    if (recognition) {
-        recognition.stop();
-        // recognition = null; // onend에서 처리
-    }
-
+  // voiceCheck: 음성 인식을 통해 호출되었는지 여부
+  function checkCar(voiceCheck = false) {
+    
+    // ⭐⭐ 핵심 수정: 음성 인식 중이어도 recognition.stop() 호출을 제거합니다. 
+    // stop() 호출이 onend를 강제로 발생시키고 재시작 시 프롬프트를 유발합니다.
+    
     const num = inputEl.value.replace(/\D/g, "").padStart(4, "0");
     if (!num || num === "0000") {
-      speak("번호를 입력하거나 말씀해주세요.");
-      // **⭐수정: 번호 입력이 없으면 음성 인식 재시작 로직 추가**
-      if (isContinuous) {
-          startVoice();
+      if (voiceCheck) {
+        speak("번호를 입력하거나 말씀해주세요.");
       }
       return;
     }
@@ -112,24 +106,24 @@
     const found = carData.find(c => c.번호 === num);
     if (found) {
       showResult(found);
-      // **⭐수정: 간단한 음성 안내**
-      // speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`); 
+      // ⭐ 간단한 음성 안내
       speak("등록된 차량입니다. 주차 스티커 " + found.주차스티커 + "입니다."); 
     } else {
       statusEl.textContent = `🚫 ${num}번 차량은 등록되지 않았습니다.`;
       table.style.display = "none";
-      // **⭐수정: 간단한 음성 안내**
+      // ⭐ 간단한 음성 안내
       speak(`${num}번 차량은 등록되지 않았습니다.`);
     }
     
-    // **⭐추가: 연속 모드일 경우, 조회 후 재시작**
-    if (isContinuous) {
-        // 짧은 지연 후 재시작하여 음성 출력 완료를 기다림
+    // ⭐ 조회가 완료된 후 input 필드만 초기화하여 다음 발화를 기다림
+    inputEl.value = ""; 
+    
+    // 음성 인식 중이면 상태 메시지를 다시 리셋하여 다음 발화를 기다립니다.
+    if (recognition && isContinuous) {
+        // 음성 출력이 끝날 때까지 기다렸다가 다시 '말해주세요' 상태로 변경
         setTimeout(() => {
-            if (!recognition) { // checkCar()에서 stop()을 호출했으므로 recognition은 null이 될 예정
-                startVoice();
-            }
-        }, 1500);
+            statusEl.textContent = "🎙️ 번호를 말씀해주세요... (연속 모드 유지 중)";
+        }, 1500); 
     }
   }
 
@@ -153,22 +147,21 @@
     speechSynthesis.cancel(); 
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "ko-KR";
-    utter.rate = 1.2; // 말하는 속도 조금 빠르게 설정
+    utter.rate = 1.2; 
     speechSynthesis.speak(utter);
   }
 
   // 🔹 음성 인식 시작 함수
   function startVoice() {
     // 이미 인식 중이면 중복 실행 방지
-    if (recognition) return; 
+    if (recognition && recognition.running) return; 
 
     if (!("webkitSpeechRecognition" in window)) {
       alert("이 브라우저는 음성인식을 지원하지 않습니다.\n크롬 브라우저를 사용해주세요.");
       return;
     }
 
-    // **⭐수정: continuous 속성을 true로 설정**
-    isContinuous = true; // 연속 인식 모드 활성화 (권한 유지 목적)
+    isContinuous = true; // 연속 인식 모드 활성화 
     recognition = new webkitSpeechRecognition(); 
     recognition.lang = "ko-KR";
     recognition.continuous = isContinuous; 
@@ -176,40 +169,47 @@
     recognition.maxAlternatives = 1;
 
     recognition.onstart = function() {
-        statusEl.textContent = "🎙️ 번호를 말씀해주세요...";
-        table.style.display = "none";
+        statusEl.textContent = "🎙️ 번호를 말씀해주세요... (연속 모드 시작)";
+        // 테이블은 그대로 유지하여 최근 조회 결과를 보여줄 수 있도록 함.
     };
     
     // 인식 성공
     recognition.onresult = function(event) {
-      // recognition.stop(); // onresult에서 stop을 호출하면 다음 발화가 인식되지 않을 수 있어 checkCar()에서 처리
+      // ⭐⭐ onresult에서 stop() 호출을 완전히 제거. continuous: true가 세션을 유지하도록 함.
       const transcript = event.results[0][0].transcript;
       const num = transcript.replace(/[^0-9]/g, ""); // 숫자만 추출
       
-      // 번호 추출이 불완전하다고 판단되면
       if (num.length < 2 || num.length > 4) {
           statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도해주세요.`;
           speak("번호를 정확히 말씀해주세요.");
-          // 연속 모드이므로 잠시 후 재시작 로직은 onend와 checkCar에서 처리됨
       } else {
           inputEl.value = num;
-          checkCar(); // checkCar 내부에서 recognition.stop() 호출
+          checkCar(true); // 음성으로 호출했음을 알림
       }
     };
 
-    // 인식이 끝났을 때
+    // 인식이 끝났을 때 (모바일에서 timeout 등으로 인해 자주 발생)
     recognition.onend = function() {
-        if (recognition) {
-            recognition = null; 
-            // **⭐추가: 연속 모드일 때만 예상치 못한 종료(timeout 등) 시 재시작**
-            if (isContinuous) { 
-                statusEl.textContent = "음성 인식이 대기 상태로 종료되었습니다. 자동 재시작 시도 중...";
-                // 짧은 지연 후 재시작하여 시스템 부담 줄이기
-                setTimeout(startVoice, 500); 
-                return; // 재시작을 시도했으므로 함수 종료
-            }
+        // ⭐⭐ 연속 모드이고 예상치 못한 종료일 경우, 재시작을 시도하여 권한 프롬프트 재등장을 막습니다.
+        if (isContinuous) { 
+            statusEl.textContent = "음성 인식이 대기 상태로 종료되었습니다. (자동 재시작 시도 중)";
+            
+            // 짧은 지연 후 재시작 시도
+            setTimeout(() => {
+                try {
+                    recognition.start(); // 기존 객체를 다시 시작
+                } catch (e) {
+                    // start()가 실패하면, 완전히 새로 시작
+                    statusEl.textContent = `❌ 재시작 실패: ${e.message}. 수동으로 다시 시도해주세요.`;
+                    recognition = null;
+                }
+            }, 500); // 0.5초 후 재시작
+            return; 
         }
+        
+        // 연속 모드가 아니면 완전히 종료
         statusEl.textContent = "조회 버튼을 눌러 다시 시작해주세요.";
+        recognition = null;
     };
     
     // ⭐ 오류 발생 시 처리 로직
@@ -218,44 +218,35 @@
         
         switch(event.error) {
             case 'not-allowed':
-                errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용해주세요. (HTTPS 환경이 아니면 매번 물어볼 수 있음)";
-                speak(errorMsg);
-                isContinuous = false; // 권한이 없으면 연속 모드 해제
+                errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용해주세요.";
+                isContinuous = false; 
+                recognition = null;
                 break;
             case 'no-speech':
-                errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요.";
-                // 'no-speech' 오류는 재시작 시도 (continuous: true가 아니어도 자동 재시작)
-                statusEl.textContent = errorMsg + " (자동 재시작)";
-                speak("음성을 인식하지 못했습니다. 다시 말씀해주세요.");
-                recognition.start();
-                return; 
+                errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요. (자동 재시작)";
+                // no-speech는 onend를 유발하지 않을 수 있으므로, 명시적으로 재시작
+                if (isContinuous && recognition) {
+                    recognition.start();
+                    return;
+                }
+                break;
             case 'service-not-allowed':
                 errorMsg = "❌ 보안 문제로 서비스 사용이 거부되었습니다. **HTTPS 환경**에서 접속했는지 확인해주세요.";
-                speak(errorMsg);
                 isContinuous = false;
+                recognition = null;
                 break;
             case 'aborted':
-                errorMsg = "음성 인식이 종료되었습니다."; // checkCar()에서 stop()을 호출한 경우 포함
+                errorMsg = "음성 인식이 종료되었습니다. (수동 종료 또는 오류)";
                 break;
             default:
-                // 기타 오류 시 (예: timeout)
-                statusEl.textContent = errorMsg + ` (오류 코드: ${event.error}) 자동 재시작을 시도합니다.`;
-                speak(errorMsg + " 다시 시작합니다.");
-                
-                if (isContinuous && recognition) {
-                    try {
-                        recognition.start();
-                        return; 
-                    } catch(e) {
-                        errorMsg = "❌ 음성 인식 재시작 실패: " + e.message;
-                    }
-                }
-                isContinuous = false;
+                // 기타 오류 시 (예: timeout) onend에서 처리되도록 둡니다.
                 break;
         }
 
-        statusEl.textContent = errorMsg;
-        recognition = null; // 오류 발생 시 객체 초기화
+        if (event.error !== 'no-speech') {
+            statusEl.textContent = errorMsg;
+            speak(errorMsg);
+        }
     };
     
     recognition.start();
