@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주차 차량 확인기 (연속 음성인식) - 권한 개선판</title>
+<style>
+  body { font-family: "Pretendard", sans-serif; background: #f9fafb; text-align: center; padding: 20px; }
+  h2 { color: #2b4eff; }
+  input { font-size: 1.2em; padding: 10px; width: 200px; margin: 10px; border-radius: 10px; border: 1px solid #ccc; text-align: center; }
+  button { font-size: 1.1em; padding: 10px 20px; border: none; background: #2b4eff; color: white; border-radius: 10px; margin: 4px; }
+  button:active { background: #1a36b0; }
+  table { margin: 20px auto; border-collapse: collapse; width: 90%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  th, td { border: 1px solid #ddd; padding: 10px; }
+  th { background: #f1f3f6; }
+  #status { margin-top: 15px; font-weight: bold; color: #333; }
+  #permInfo { margin-top:8px; font-size:0.95em; color:#555; }
+</style>
+</head>
+<body>
+  <h2>🎤 주차 차량 확인기 (연속 음성인식)</h2>
+
+  <input type="text" id="carInput" placeholder="4자리 번호 입력">
+  <button onclick="checkCar()">조회</button>
+  <button id="voiceBtn" onclick="startVoice()">🎙️ 음성으로 조회 (권한 요청)</button>
+  <button id="stopBtn" onclick="stopVoice()" style="display:none;background:#ff5c5c;">■ 중지</button>
+
+  <div id="status"></div>
+  <div id="permInfo"></div>
+
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr><th>번호</th><th>색상</th><th>차종</th><th>주차스티커</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+/* --- 기존 차량 데이터 (원본 유지) --- */
+const carData = [
+  { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "레이 " },
+  { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "C36 아우디" },
+  { 번호: "0159", 주차스티커: "있음(황색)", 색상: "베이지", 차종: "모닝" },
+  { 번호: "0211", 주차스티커: "없음", 색상: "검정계열", 차종: "크루즈" },
+  { 번호: "0227", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "K7" },
+  { 번호: "0759", 주차스티커: "있음(황색)", 색상: "청색계열", 차종: "소나타" },
+  { 번호: "0841", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "아이오닉" },
+  { 번호: "1045", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "G90" }
+];
+
+const inputEl = document.getElementById("carInput");
+const statusEl = document.getElementById("status");
+const permInfoEl = document.getElementById("permInfo");
+const table = document.getElementById("resultTable");
+const tbody = table.querySelector("tbody");
+
+let recognition = null;
+let micStream = null;
+let permissionGranted = false;
+let autoStopTimer = null; // 30분 타이머
+
+/* 조회 처리 (기존 기능 유지) */
+function checkCar() {
+  const num = inputEl.value.replace(/\D/g, "").padStart(4, "0");
+  if (!num) {
+    speak("번호를 입력하거나 말씀해주세요.");
+    return;
+  }
+  const found = carData.find(c => c.번호 === num);
+  if (found) {
+    showResult(found);
+    speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`);
+  } else {
+    statusEl.textContent = `🚫 ${num}번 차량은 등록되지 않았습니다.`;
+    table.style.display = "none";
+    speak(`${num}번 차량은 등록되지 않았습니다.`);
+  }
+}
+
+function showResult(data) {
+  tbody.innerHTML = `
+    <tr>
+      <td>${data.번호}</td>
+      <td>${data.색상}</td>
+      <td>${data.차종}</td>
+      <td>${data.주차스티커}</td>
+    </tr>`;
+  table.style.display = "table";
+  statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "ko-KR";
+  speechSynthesis.speak(utter);
+}
+
+/* --- 권한 요청 및 음성인식 초기화 / 30분 유지 로직 --- */
+function requestMicrophoneOnce() {
+  // 한 번 getUserMedia로 권한을 요청합니다. (사용자가 허용하면 세션동안 권한 유지)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    permInfoEl.textContent = "⚠️ 이 브라우저는 getUserMedia(마이크) API를 지원하지 않습니다. Chrome 권장.";
+    return Promise.reject(new Error("getUserMedia unsupported"));
+  }
+
+  // 이미 권한이 있는 경우 바로 resolve
+  if (permissionGranted) return Promise.resolve(micStream);
+
+  return navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      micStream = stream;
+      permissionGranted = true;
+      permInfoEl.textContent = "🔓 마이크 권한이 허용되었습니다. 30분간 재요청 없이 사용합니다.";
+      // 주의: 여기서 곧바로 트랙을 stop하면 일부 브라우저에서 권한이 사라질 수 있으므로
+      // 우리는 스트림을 유지했다가 30분 후에 중지합니다.
+      return stream;
+    })
+    .catch(err => {
+      permInfoEl.textContent = "⛔ 마이크 권한이 거부되었습니다. 권한을 허용해야 음성인식을 사용할 수 있습니다.";
+      throw err;
+    });
+}
+
+function initRecognition() {
+  if (!("webkitSpeechRecognition" in window)) {
+    alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬 브라우저를 사용해주세요.");
+    return;
+  }
+  if (recognition) return; // 이미 초기화됨
+
+  recognition = new webkitSpeechRecognition();
+  recognition.lang = "ko-KR";
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    statusEl.textContent = "🎤 음성 인식 시작 — 번호를 말씀해주세요...";
+    document.getElementById("voiceBtn").style.display = "none";
+    document.getElementById("stopBtn").style.display = "inline-block";
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[event.results.length - 1][0].transcript;
+    const num = transcript.replace(/[^0-9]/g, "");
+    if (num.length >= 2 && num.length <= 4) {
+      inputEl.value = num;
+      checkCar();
+    } else {
+      statusEl.textContent = `⚠️ "${transcript}"에서 번호 인식 실패. 다시 말씀해주세요.`;
+    }
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === "no-speech") {
+      statusEl.textContent = "❌ 음성을 인식하지 못했습니다. 다시 시도합니다.";
+    } else {
+      statusEl.textContent = `⚠️ 오류 발생: ${event.error}`;
+    }
+  };
+
+  recognition.onend = () => {
+    // 자동 재시작: permission 상태가 유지되고 30분 타이머가 유효하면 재시작
+    if (permissionGranted && autoStopTimer) {
+      try {
+        recognition.start();
+      } catch (e) {
+        // 브라우저 정책으로 재시작 실패 가능 (특히 iOS)
+        statusEl.textContent = "⏸ 음성인식이 중지되었습니다(브라우저 정책). 다시 시작하세요.";
+        document.getElementById("voiceBtn").style.display = "inline-block";
+        document.getElementById("stopBtn").style.display = "none";
+      }
+    } else {
+      statusEl.textContent = "⏸ 음성인식이 중지되었습니다.";
+      document.getElementById("voiceBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").style.display = "none";
+    }
+  };
+}
+
+/* 시작: 권한요청 -> recognition 시작 -> 30분 타이머 설정 */
+function startVoice() {
+  // 1) 권한 요청 (한 번). 2) 초기화 및 start. 3) 30분 자동중지 타이머.
+  requestMicrophoneOnce()
+    .then(() => {
+      initRecognition();
+      try {
+        recognition.start();
+      } catch (e) {
+        // 이미 실행 중일 수 있음
+      }
+      // 30분 동안 유지: 타이머 초기화
+      if (autoStopTimer) clearTimeout(autoStopTimer);
+      autoStopTimer = setTimeout(() => {
+        stopVoice(true); // 타임아웃으로 중지
+      }, 30 * 60 * 1000); // 30분 = 1,800,000 ms
+    })
+    .catch((err) => {
+      console.warn("마이크 권한 실패:", err);
+    });
+}
+
+/* 중지: recognition 중지 + 마이크 트랙 해제 + 타이머 정리 */
+function stopVoice(isAuto=false) {
+  if (recognition) {
+    try { recognition.onend = null; recognition.stop(); } catch (e) {}
+    recognition = null;
+  }
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  permissionGranted = false;
+  if (autoStopTimer) { clearTimeout(autoStopTimer); autoStopTimer = null; }
+  statusEl.textContent = isAuto ? "⏰ 30분이 지나 음성인식을 자동으로 중지했습니다." : "⏸ 음성인식을 중지했습니다.";
+  permInfoEl.textContent = "🔒 마이크 스트림이 해제되었습니다. 다시 사용하려면 권한을 허용하세요.";
+  document.getElementById("voiceBtn").style.display = "inline-block";
+  document.getElementById("stopBtn").style.display = "none";
+}
+</script>
+</body>
+</html>
