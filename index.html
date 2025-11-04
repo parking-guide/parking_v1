@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주차 차량 확인기 (안정화 버전)</title>
+<style>
+  body { font-family: -apple-system, system-ui, "Noto Sans KR", sans-serif; background:#f7f7fb; text-align:center; padding:20px; }
+  h2 { color:#2b4eff; margin-bottom:8px; }
+  input { font-size:1.15em; padding:10px; width:200px; margin:10px; border-radius:10px; border:1px solid #ccc; text-align:center; }
+  button { font-size:1.05em; padding:10px 18px; border:none; border-radius:10px; background:#2b4eff; color:#fff; margin:4px; }
+  button:active { background:#203ad4; }
+  #stopBtn { background:#ff5c5c; display:none; }
+  table { margin:20px auto; border-collapse:collapse; width:92%; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+  th, td { border:1px solid #e9ecf1; padding:10px; }
+  th { background:#f1f3f6; }
+  #status { margin-top:12px; font-weight:600; color:#333; }
+  #hint { margin-top:6px; color:#555; font-size:.95em; }
+</style>
+</head>
+<body>
+  <h2>🎤 주차 차량 확인기</h2>
+  <input id="carInput" placeholder="4자리 번호 입력" inputmode="numeric" />
+  <button id="searchBtn">조회</button>
+  <button id="voiceBtn">🎙️ 음성으로 조회 시작</button>
+  <button id="stopBtn">■ 중지</button>
+
+  <div id="status"></div>
+  <div id="hint">Chrome(안드로이드) 권장. iOS Safari는 음성인식 지원이 제한적입니다.</div>
+
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr><th>번호</th><th>색상</th><th>차종</th><th>주차스티커</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+/* ===== 차량 데이터(예시) ===== */
+const carData = [
+  { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색",   차종: "레이" },
+  { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색",   차종: "C36 아우디" },
+  { 번호: "0159", 주차스티커: "있음(황색)", 색상: "베이지", 차종: "모닝" },
+  { 번호: "0211", 주차스티커: "없음",       색상: "검정계열", 차종: "크루즈" },
+  { 번호: "0227", 주차스티커: "있음(황색)", 색상: "흰색",   차종: "K7" },
+  { 번호: "0759", 주차스티커: "있음(황색)", 색상: "청색계열", 차종: "소나타" },
+  { 번호: "0841", 주차스티커: "있음(황색)", 색상: "흰색",   차종: "아이오닉" },
+  { 번호: "1045", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "G90" }
+];
+
+/* ===== UI 엘리먼트 ===== */
+const inputEl   = document.getElementById("carInput");
+const statusEl  = document.getElementById("status");
+const table     = document.getElementById("resultTable");
+const tbody     = table.querySelector("tbody");
+const voiceBtn  = document.getElementById("voiceBtn");
+const stopBtn   = document.getElementById("stopBtn");
+const searchBtn = document.getElementById("searchBtn");
+
+/* ===== 전역 상태 ===== */
+let recognition = null;
+let listening = false;
+let sessionEndsAt = 0; // 30분 세션 종료 시각(ms)
+let restarting = false;
+
+/* ===== 유틸 ===== */
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ko-KR";
+  window.speechSynthesis.cancel(); // 겹침 방지
+  window.speechSynthesis.speak(u);
+}
+
+function showResult(row) {
+  tbody.innerHTML = `<tr>
+    <td>${row.번호}</td>
+    <td>${row.색상}</td>
+    <td>${row.차종}</td>
+    <td>${row.주차스티커}</td>
+  </tr>`;
+  table.style.display = "table";
+  statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
+}
+
+function checkCar() {
+  const digits = (inputEl.value || "").replace(/\D/g, "");
+  if (!digits) {
+    statusEl.textContent = "ℹ️ 번호를 입력하거나 말씀해주세요.";
+    speak("번호를 입력하거나 말씀해주세요.");
+    table.style.display = "none";
+    return;
+  }
+  const num = digits.slice(-4).padStart(Math.min(4, digits.length), "0"); // 빈값이면 pad 안 함
+  const found = carData.find(c => c.번호 === num);
+  if (found) {
+    showResult(found);
+    speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`);
+  } else {
+    table.style.display = "none";
+    statusEl.textContent = `🚫 ${num}번 차량은 등록되지 않았습니다.`;
+    speak(`${num}번 차량은 등록되지 않았습니다.`);
+  }
+}
+
+/* ===== 음성 인식 ===== */
+function ensureRecognition() {
+  if (!("webkitSpeechRecognition" in window)) {
+    alert("이 브라우저는 음성인식을 지원하지 않습니다. Chrome(안드로이드) 권장.");
+    return false;
+  }
+  if (!recognition) {
+    recognition = new webkitSpeechRecognition();
+    recognition.lang = "ko-KR";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      listening = true;
+      statusEl.textContent = "🎤 듣는 중 — 번호를 말씀해주세요…";
+      voiceBtn.style.display = "none";
+      stopBtn.style.displa
+
