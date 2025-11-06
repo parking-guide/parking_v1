@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>주차 차량 확인기 (권한 재사용 개선판)</title>
+<title>주차 차량 확인기</title>
 <style>
   body {
     font-family: "Pretendard", sans-serif;
@@ -23,12 +23,11 @@
   }
   button {
     font-size: 1.8em;
-    padding: 10px 16px;
+    padding: 10px 20px;
     border: none;
     background: #2b4eff;
     color: white;
     border-radius: 10px;
-    margin: 6px;
   }
   button:active { background: #1a36b0; }
   table {
@@ -43,20 +42,15 @@
     padding: 15px;
   }
   th { background: #f1f3f6; }
-  #status { margin-top: 15px; font-weight: bold; color: #333; min-height: 1.5em; }
-  .hint { color:#666; font-size: 0.95em; }
+  #status { margin-top: 15px; font-weight: bold; color: #333; }
 </style>
 </head>
 <body>
   <h2>🎤 주차 차량 확인기</h2>
 
-  <input type="text" id="carInput" placeholder="4자리 번호 입력" inputmode="numeric" maxlength="4">
-  <div>
-    <button id="btnSearch">조회</button>
-    <button id="btnVoice">🎙️ 음성으로 조회</button>
-    <button id="btnStop">⏹️ 중지</button>
-  </div>
-  <div class="hint">안드로이드 크롬 · HTTPS 환경에서 권한을 한 번만 허용하면, 앱을 새로고침하기 전까지는 권한 팝업이 반복되지 않도록 최적화했습니다.</div>
+  <input type="text" id="carInput" placeholder="4자리 번호 입력" inputmode="numeric" pattern="[0-9]*">
+  <button onclick="checkCar()">조회</button>
+  <button id="voiceBtn" onclick="startVoice()">🎙️ 음성으로 조회</button>
 
   <div id="status"></div>
 
@@ -68,7 +62,7 @@
   </table>
 
   <script>
-  // 🔹 차량 데이터
+  // 🔹 차량 데이터 (HTML 안에서 직접 수정/추가 가능)
   const carData = [
     { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "레이 " },
     { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "C36 아우디" },
@@ -86,96 +80,119 @@
   const statusEl = document.getElementById("status");
   const table = document.getElementById("resultTable");
   const tbody = table.querySelector("tbody");
-  const btnSearch = document.getElementById("btnSearch");
-  const btnVoice = document.getElementById("btnVoice");
-  const btnStop = document.getElementById("btnStop");
+  const voiceBtn = document.getElementById("voiceBtn");
 
-  // 음성 합성
-  function speak(text) {
+  // --------- 마이크 권한/음성인식 재사용을 위한 핵심 변경 ---------
+  // 1) 마이크 권한을 첫 실행 때 한 번만 요청 (getUserMedia)
+  // 2) webkitSpeechRecognition 인스턴스를 '한 번만' 생성해서 계속 재사용
+  // 3) HTTPS(예: GitHub Pages)에서 사용 권장
+
+  let recognition = null;      // 단일 인스턴스
+  let isListening = false;     // 현재 인식 중인지
+  let micReady = false;        // 마이크 권한 준비 여부
+
+  // 마이크 권한을 한 번만 확보
+  async function ensureMicPermission() {
+    if (micReady) return true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true; // 일부 브라우저 호환
     try {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "ko-KR";
-      speechSynthesis.speak(utter);
-    } catch(e) {}
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 권한만 확보하고 즉시 트랙 종료
+      stream.getTracks().forEach(t => t.stop());
+      micReady = true;
+      return true;
+    } catch (e) {
+      statusEl.textContent = "❌ 마이크 권한이 필요합니다. 브라우저에서 허용해주세요.";
+      speak("마이크 권한을 허용해주세요.");
+      return false;
+    }
   }
 
-  // 🔹 recognition을 앱 생애주기 동안 1회만 생성하여 재사용
-  let recognition = null;
-  let isRecognizing = false;
+  // webkitSpeechRecognition 인스턴스를 한 번만 초기화
+  function getRecognizer() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬 브라우저를 사용해주세요.");
+      return null;
+    }
+    if (recognition) return recognition;
 
-  function initRecognitionOnce() {
-    if (recognition || !('webkitSpeechRecognition' in window)) return;
-    recognition = new webkitSpeechRecognition();
-    recognition.lang = 'ko-KR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    const r = new webkitSpeechRecognition();
+    r.lang = "ko-KR";
+    r.interimResults = false;
+    r.maxAlternatives = 1;
 
-    recognition.onstart = function() {
-      isRecognizing = true;
+    r.onstart = function () {
+      isListening = true;
       statusEl.textContent = "🎙️ 번호를 말씀해주세요...";
+      voiceBtn.disabled = true;
     };
 
-    recognition.onresult = function(event) {
+    r.onresult = function (event) {
       const transcript = event.results[0][0].transcript;
       const num = transcript.replace(/[^0-9]/g, "");
       if (num.length >= 2 && num.length <= 4) {
         inputEl.value = num;
         checkCar();
       } else {
-        statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도해주세요.`;
-        speak("번호를 정확히 말씀해주세요.");
+        statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도합니다.`;
+        speak("번호를 정확히 말씀해주세요. 다시 시작합니다.");
+        try { r.start(); } catch (_) {}
       }
     };
 
-    recognition.onend = function() {
-      isRecognizing = false;
-      statusEl.textContent = statusEl.textContent || "음성 인식이 종료되었습니다.";
-    };
-
-    recognition.onerror = function(event) {
-      let errorMsg = "❌ 음성 인식 오류가 발생했습니다.";
-      switch(event.error) {
-        case 'not-allowed':
-          errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용해주세요.";
+    r.onerror = function (event) {
+      let msg = "❌ 음성 인식 중 오류가 발생했습니다.";
+      switch (event.error) {
+        case "not-allowed":
+          msg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요.";
           break;
-        case 'network':
-          errorMsg = "❌ 네트워크 연결 상태를 확인해주세요.";
+        case "no-speech":
+          msg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요. 자동 재시작합니다.";
+          statusEl.textContent = msg;
+          speak("다시 말씀해주세요.");
+          try { r.start(); return; } catch (_) {}
+        case "aborted":
+          msg = "음성 인식이 종료되었습니다.";
           break;
-        case 'no-speech':
-          errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요.";
+        case "audio-capture":
+          msg = "❌ 마이크에 접근할 수 없습니다. 다른 앱 사용 여부를 확인해주세요.";
           break;
-        case 'audio-capture':
-          errorMsg = "❌ 마이크에 접근할 수 없습니다. 다른 앱이 마이크를 사용 중인지 확인해주세요.";
-          break;
-        case 'service-not-allowed':
-          errorMsg = "❌ 보안 문제로 서비스 사용이 거부되었습니다. HTTPS 환경에서 접속했는지 확인해주세요.";
+        case "service-not-allowed":
+          msg = "❌ 보안 정책으로 거부되었습니다. HTTPS 환경에서 접속했는지 확인해주세요.";
           break;
         default:
-          errorMsg = errorMsg + ` (오류 코드: ${event.error})`;
+          msg = msg + ` (코드: ${event.error})`;
+          try { r.start(); return; } catch (_) {}
       }
-      statusEl.textContent = errorMsg;
+      statusEl.textContent = msg;
     };
+
+    r.onend = function () {
+      isListening = false;
+      voiceBtn.disabled = false;
+      statusEl.textContent = "마이크 대기 상태입니다.";
+      // 인스턴스를 파기하지 않음 -> 재사용 가능!
+    };
+
+    recognition = r;
+    return recognition;
   }
 
-  // 🔹 사전 권한 요청 (HTTPS에서만 동작)
-  async function warmUpMicPermission() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-      console.log("마이크 권한 사전 허용됨");
-    } catch (e) {
-      console.warn("마이크 권한 사전 요청 거부:", e);
-    }
-  }
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkCar();
+  });
 
-  // 🔹 차량 검색
+  // 🔹 차량 검색 함수
   function checkCar() {
-    const num = (inputEl.value || "").replace(/\D/g, "").padStart(4, "0");
-    if (!num.trim()) {
+    const num = inputEl.value.replace(/\\D/g, "").padStart(4, "0");
+    if (!num || num === "0000") {
       speak("번호를 입력하거나 말씀해주세요.");
+      if (isListening && recognition) {
+        try { recognition.stop(); } catch (_) {}
+      }
       return;
     }
+
     const found = carData.find(c => c.번호 === num);
     if (found) {
       showResult(found);
@@ -185,49 +202,63 @@
       table.style.display = "none";
       speak(`${num}번 차량은 등록되지 않았습니다.`);
     }
-    // 결과 후에는 인식만 종료 (객체는 유지)
-    try { if (isRecognizing) recognition.stop(); } catch(e) {}
+
+    if (isListening && recognition) {
+      try { recognition.stop(); } catch (_) {}
+    }
   }
 
+  // 🔹 결과 표시 함수
   function showResult(data) {
-    tbody.innerHTML = `
+    tbody.innerHTML = \\`
       <tr>
-        <td>${data.번호}</td>
-        <td>${data.색상}</td>
-        <td>${data.차종}</td>
-        <td>${data.주차스티커}</td>
+        <td>\\${data.번호}</td>
+        <td>\\${data.색상}</td>
+        <td>\\${data.차종}</td>
+        <td>\\${data.주차스티커}</td>
       </tr>
-    `;
+    \\`;
     table.style.display = "table";
     statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
   }
 
-  // 🔹 버튼 동작
-  btnSearch.addEventListener('click', checkCar);
-  inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkCar(); });
+  // 🔹 음성으로 말하기 함수
+  function speak(text) {
+    try {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "ko-KR";
+      speechSynthesis.speak(utter);
+    } catch (_) {}
+  }
 
-  btnVoice.addEventListener('click', () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬 브라우저를 사용해주세요.");
-      return;
+  // 🔹 음성 인식 시작 함수 (버튼 클릭)
+  async function startVoice() {
+    // 1) HTTPS 권장 안내 (GitHub Pages는 기본 HTTPS)
+    if (location.protocol !== "https:" && location.hostname !== "localhost") {
+      statusEl.textContent = "⚠️ HTTPS에서 사용할 때 권한이 안정적으로 저장됩니다.";
     }
-    initRecognitionOnce();
-    if (!isRecognizing) {
-      try { recognition.start(); } catch (e) {}
-    }
-  });
 
-  btnStop.addEventListener('click', () => {
-    if (recognition && isRecognizing) {
-      try { recognition.stop(); } catch (e) {}
-    }
-  });
+    // 2) 권한 한 번만 확보
+    const ok = await ensureMicPermission();
+    if (!ok) return;
 
-  // 페이지 로드시 1회 초기화 & 권한 워밍업
-  window.addEventListener('load', () => {
-    initRecognitionOnce();
-    warmUpMicPermission(); // 사용자 제스처가 있는 후 호출을 권장하지만, HTTPS라면 로드 시도도 가능
-  });
+    // 3) 단일 인스턴스 재사용
+    const r = getRecognizer();
+    if (!r) return;
+
+    // 이미 듣고 있으면 다시 시작하지 않음
+    if (isListening) return;
+
+    try {
+      r.start();
+    } catch (e) {
+      // start 호출 타이밍 문제 방지
+      try { r.stop(); } catch (_) {}
+      setTimeout(() => {
+        try { r.start(); } catch (_) {}
+      }, 150);
+    }
+  }
   </script>
 </body>
 </html>
