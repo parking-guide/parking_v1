@@ -28,40 +28,29 @@
     background: #2b4eff;
     color: white;
     border-radius: 10px;
-    margin: 5px; 
   }
   button:active { background: #1a36b0; }
   table {
     margin: 20px auto;
     border-collapse: collapse;
     width: 90%;
-    max-width: 600px;
     background: white;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
   th, td {
     border: 1px solid #ddd;
     padding: 15px;
-    word-break: keep-all; 
   }
   th { background: #f1f3f6; }
-  #status { 
-    margin-top: 15px; 
-    font-weight: bold; 
-    color: #333;
-    min-height: 1.5em;
-  }
+  #status { margin-top: 15px; font-weight: bold; color: #333; }
 </style>
 </head>
 <body>
   <h2>🎤 주차 차량 확인기</h2>
 
   <input type="text" id="carInput" placeholder="4자리 번호 입력">
-  <div>
-    <button onclick="checkCar()">조회</button>
-    <button onclick="startVoice()">🎙️ 음성으로 조회</button>
-  </div>
-  
+  <button onclick="checkCar()">조회</button>
+  <button onclick="startVoice()">🎙️ 음성으로 조회</button>
 
   <div id="status"></div>
 
@@ -115,48 +104,50 @@
   const table = document.getElementById("resultTable");
   const tbody = table.querySelector("tbody");
   
-  let recognition; // 음성 인식 객체
+  // 현재 음성 인식 객체를 저장하는 변수
+  let recognition; 
 
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") checkCar();
   });
 
-  // 🔹 음성으로 말하기 함수 (스마트폰에서도 조회 결과를 읽어줍니다)
-  function speak(text) {
-    // 음성 출력 전에 현재 출력 중인 음성 취소
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "ko-KR";
-    speechSynthesis.speak(utter);
-  }
-
-  // 🔹 차량 검색 함수
-  function checkCar() {
+  // 🔹 차량 검색 함수 (수정)
+  function checkCar(isVoiceSearch = false) { // 음성 검색 여부를 인자로 추가
     const num = inputEl.value.replace(/\D/g, "").padStart(4, "0");
-    
-    // 인식 객체가 활성화된 상태라면, 여기서 명확하게 중지 및 초기화
-    if (recognition) {
-        recognition.stop();
-        recognition = null;
-    }
+    let utteranceText = "";
 
-    if (!num || num === "0000") {
-      speak("번호를 입력하거나 말씀해주세요.");
+    if (!num) {
+      utteranceText = "번호를 입력하거나 말씀해주세요.";
+      speak(utteranceText);
+      // 음성 인식이 활성화된 상태면 여기서 멈춤
+      if (recognition) {
+          recognition.stop();
+          recognition = null; // 객체 초기화
+      }
       return;
     }
 
+    // 결과 처리 로직 (원래 코드와 동일)
     const found = carData.find(c => c.번호 === num);
     if (found) {
       showResult(found);
-      // ✅ 조회 결과 음성 대답
-      speak(`${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`);
+      utteranceText = `${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`;
     } else {
       statusEl.textContent = `🚫 ${num}번 차량은 등록되지 않았습니다.`;
       table.style.display = "none";
-      // ✅ 등록 안 됨 음성 대답
-      speak(`${num}번 차량은 등록되지 않았습니다.`);
+      utteranceText = `${num}번 차량은 등록되지 않았습니다.`;
+    }
+    
+    // PC/모바일 환경 모두에서 TTS가 작동하도록 speak 함수 호출
+    // 특히, 음성 인식을 통해 checkCar가 호출되었을 때만 음성 결과를 알려주도록 isVoiceSearch 체크
+    if (isVoiceSearch) { 
+        speak(utteranceText);
+    }
+
+    // 인식 성공 후 객체 정리
+    if (recognition) {
+        recognition.stop();
+        recognition = null;
     }
   }
 
@@ -174,30 +165,36 @@
     statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
   }
 
+  // 🔹 음성으로 말하기 함수 (수정: 모바일 호환성 강화)
+  function speak(text) {
+    // 이전 음성 출력을 중지하여 겹치는 것을 방지
+    if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+    }
+    
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "ko-KR";
+    
+    // 모바일 환경에서 TTS가 즉시 재생되도록 요청
+    speechSynthesis.speak(utter);
+  }
 
   // 🔹 음성 인식 시작 함수
   function startVoice() {
-    // 중복 실행 방지
-    if (recognition) {
-        statusEl.textContent = "🎙️ 이미 음성 인식 중입니다. 잠시 후 다시 시도해주세요.";
-        return; 
-    }
-    
-    // API 지원 확인
+    // 이미 인식 중이면 중복 실행 방지
+    if (recognition) return; 
+
     if (!("webkitSpeechRecognition" in window)) {
       alert("이 브라우저는 음성인식을 지원하지 않습니다.\n크롬 브라우저를 사용해주세요.");
       return;
     }
 
-    // ⭐ 중요: 음성 인식 시작 전, 혹시 남아있는 TTS 취소
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-    
-    recognition = new webkitSpeechRecognition();
+    recognition = new webkitSpeechRecognition(); // 전역 변수에 저장
     recognition.lang = "ko-KR";
-    recognition.continuous = false;
-    recognition.interimResults = false; 
+    
+    // **모바일 환경에서 짧은 발화 후 인식이 중단되는 문제를 완화하기 위해 'continuous: false'를 유지하고 재시작 로직으로 보완합니다.**
+    // recognition.continuous = true; // 연속 인식 모드는 모바일에서 불안정
+    recognition.interimResults = false; // 최종 결과만 받도록 설정 (선택 사항)
     recognition.maxAlternatives = 1;
 
     recognition.onstart = function() {
@@ -206,73 +203,87 @@
     
     // 인식 성공
     recognition.onresult = function(event) {
+      // recognition.stop(); // onresult에서 stop을 호출하면 다음 발화가 인식되지 않을 수 있어 checkCar()에서 처리
       const transcript = event.results[0][0].transcript;
-      const num = transcript.replace(/[^0-9]/g, ""); 
+      const num = transcript.replace(/[^0-9]/g, ""); // 숫자만 추출
       
-      // onresult 발생 시, 객체 정리
-      if (recognition) {
-        recognition.stop();
-        recognition = null;
-      }
-
+      // 음성 인식이 '0'이나 '1004'처럼 인식될 때: 번호가 짧으면 인식이 불완전하다고 간주할 수 있음
       if (num.length >= 2 && num.length <= 4) {
           inputEl.value = num;
-          checkCar();
+          checkCar(true); // 음성 검색임을 알림
       } else {
-          statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 '음성으로 조회' 버튼을 눌러 시도해주세요.`;
-          speak("번호를 정확히 말씀해주세요. 다시 시도해주세요.");
+          statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도해주세요.`;
+          speak("번호를 정확히 말씀해주세요. 다시 시작합니다.");
+          // 번호 추출 실패 시 자동으로 재시작
+          recognition.start();
       }
     };
 
-    // 인식이 끝났을 때
+    // 인식이 끝났을 때 (오류가 아니더라도 끝날 수 있음)
     recognition.onend = function() {
-        // onresult나 오류 처리에서 정리되지 않은 경우
+        // 오류가 아닌 정상 종료이거나, onresult를 통해 checkCar가 호출된 경우 recognition 객체는 null이 됩니다.
+        // 객체가 null이 아니면, 음성 인식이 예상치 않게 중단된 것으로 보고 재시작하지 않습니다.
         if (recognition) {
-             statusEl.textContent = "음성 인식이 종료되었습니다. 다시 '음성으로 조회' 버튼을 눌러주세요.";
-             recognition = null; 
+            recognition = null; 
+            // statusEl.textContent = "조회 버튼을 눌러 다시 시작해주세요.";
         }
     };
     
-    // ⭐⭐ 오류 발생 시 처리 로직 (안드로이드 이슈 대응) ⭐⭐
+    // ⭐⭐ 오류 발생 시 처리 로직 (핵심 수정 부분) ⭐⭐
     recognition.onerror = function(event) {
-        let errorMsg;
+        let errorMsg = "❌ 음성 인식 중 오류가 발생했습니다. (일반 오류)";
         
-        // 오류 발생 시 객체 초기화
-        if (recognition) {
-            recognition.stop();
-            recognition = null; 
-        }
-
         switch(event.error) {
             case 'not-allowed':
-                // ⭐ 안드로이드에서 이 오류가 나면 HTTPS 환경이 아니거나, 브라우저 마이크 권한이 꺼진 경우입니다.
-                errorMsg = "❌ 마이크 권한이 거부되었습니다. **HTTPS 환경**에서 접속했는지, 브라우저 설정에서 마이크 사용을 허용했는지 확인해주세요.";
+                errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용해주세요.";
+                speak(errorMsg);
+                break;
+            case 'network':
+                errorMsg = "❌ 네트워크 연결 상태를 확인해주세요.";
                 speak(errorMsg);
                 break;
             case 'no-speech':
-                errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 '음성으로 조회' 버튼을 눌러주세요.";
-                speak("음성을 인식하지 못했습니다. 다시 시도해주세요.");
+                errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요.";
+                // 'no-speech' 오류는 재시작 시도
+                statusEl.textContent = errorMsg + " (자동 재시작)";
+                speak("음성을 인식하지 못했습니다. 다시 말씀해주세요.");
+                recognition.start();
+                return; // 재시작했으므로 함수 종료
+            case 'aborted':
+                // 사용자가 취소하거나, checkCar에서 stop()을 호출한 경우 (정상 종료)
+                errorMsg = "음성 인식이 종료되었습니다.";
+                break;
+            case 'audio-capture':
+                errorMsg = "❌ 마이크에 접근할 수 없습니다. 다른 앱이 마이크를 사용 중인지 확인해주세요.";
+                speak(errorMsg);
                 break;
             case 'service-not-allowed':
-                // ⭐ 모바일 환경에서 흔히 발생하며, HTTPS 미적용이 원인인 경우가 많습니다.
-                errorMsg = "❌ 보안 문제로 서비스 사용이 거부되었습니다. **HTTPS 환경**에서 접속했는지 반드시 확인해주세요.";
+                // 특히 모바일에서 자주 발생 (HTTPS 필수)
+                errorMsg = "❌ 보안 문제로 서비스 사용이 거부되었습니다. **HTTPS 환경**에서 접속했는지 확인해주세요.";
                 speak(errorMsg);
                 break;
             default:
-                errorMsg = `❌ 음성 인식 중 오류가 발생했습니다. (오류 코드: ${event.error}). 다시 시도해주세요.`;
-                speak(errorMsg);
+                // 기타 오류 시 (예: timeout)
+                statusEl.textContent = errorMsg + ` (오류 코드: ${event.error})`;
+                speak(errorMsg + " 다시 시작합니다.");
+                
+                // ⭐⭐ 모바일에서 자주 발생하는 Timeout 오류 등의 경우 자동 재시작 ⭐⭐
+                if (recognition) { // 객체가 살아있는지 확인 후
+                    try {
+                        recognition.start();
+                        return; // 재시작했으므로 함수 종료
+                    } catch(e) {
+                        errorMsg = "❌ 음성 인식 재시작 실패: " + e.message;
+                    }
+                }
                 break;
         }
 
         statusEl.textContent = errorMsg;
+        recognition = null; // 오류 발생 시 객체 초기화
     };
     
-    try {
-        recognition.start();
-    } catch(e) {
-        statusEl.textContent = "❌ 음성 인식 시작 중 오류 발생: " + e.message + " 브라우저를 확인해주세요.";
-        recognition = null;
-    }
+    recognition.start();
   }
   </script>
 </body>
