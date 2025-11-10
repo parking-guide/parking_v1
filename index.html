@@ -1,226 +1,90 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>주차 차량 확인기 (수정본)</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주차 차량 확인기 - 모바일 음성출력 강화버전</title>
 <style>
-  body { font-family: "Pretendard", sans-serif; background: #f9fafb; text-align: center; padding: 20px; }
-  h2 { color: #2b4eff; }
-  input { font-size: 2.0em; padding: 10px; width: 200px; margin: 10px; border-radius: 10px; border: 1px solid #ccc; text-align: center; }
-  button { font-size: 1.8em; padding: 10px 20px; border: none; background: #2b4eff; color: white; border-radius: 10px; }
-  button:active { background: #1a36b0; }
-  table { margin: 20px auto; border-collapse: collapse; width: 90%; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-  th, td { border: 1px solid #ddd; padding: 15px; }
-  th { background: #f1f3f6; }
-  #status { margin-top: 15px; font-weight: bold; color: #333; }
-  small { color: #666; display:block; margin-top:8px; }
+body{font-family:sans-serif;text-align:center;padding:20px;background:#f9fafb;}
+input{font-size:2em;padding:10px;width:200px;margin:10px;border-radius:10px;text-align:center;}
+button{font-size:1.6em;padding:12px 25px;border:none;background:#2b4eff;color:white;border-radius:12px;}
+table{margin:20px auto;border-collapse:collapse;width:90%;background:white;}
+th,td{border:1px solid #ccc;padding:12px;}
 </style>
 </head>
 <body>
-  <h2>🎤 주차 차량 확인기 (수정본)</h2>
-
-  <input type="text" id="carInput" placeholder="4자리 번호 입력">
-  <button id="btnCheck">조회</button>
-  <button id="btnVoice">🎙️ 음성으로 조회</button>
-
-  <div id="status"></div>
-  <small>스마트폰에서 동작하지 않으면: ①브라우저 마이크 권한 허용 ②HTTPS 또는 GitHub Pages로 배포 → 권장</small>
-
-  <table id="resultTable" style="display:none;">
-    <thead>
-      <tr><th>번호</th><th>색상</th><th>차종</th><th>주차스티커</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<h2>🎤 주차 차량 확인기 (모바일 음성출력 강화)</h2>
+<input id="carInput" placeholder="4자리 번호">
+<button id="btnCheck">조회</button>
+<button id="btnVoice">🎙️ 음성으로 조회</button>
+<div id="status"></div>
+<table id="resultTable" style="display:none;"><tbody></tbody></table>
 
 <script>
-const carData = [
-  { 번호: "0114", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "레이 " },
-  { 번호: "0136", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "C36 아우디" },
-  { 번호: "0159", 주차스티커: "있음(황색)", 색상: "베이지", 차종: "모닝" },
-  { 번호: "0211", 주차스티커: "없음", 색상: "검정계열", 차종: "크루즈" },
-  { 번호: "0212", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "크루즈" },
-  { 번호: "0227", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "K7" },
-  { 번호: "0285", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "임팔라쉐보레" },
-  { 번호: "0307", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "제네시스" },
-  { 번호: "0430", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "소나타" },
-  { 번호: "0448", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "니로" },
-  { 번호: "0460", 주차스티커: "없음", 색상: "검정계열", 차종: "K7" },
-  { 번호: "0476", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "레이" },
-  { 번호: "0520", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "카니발" },
-  { 번호: "0539", 주차스티커: "교회차량", 색상: "은_회색", 차종: "스타렉스" },
-  { 번호: "0547", 주차스티커: "없음(확인)", 색상: "흰색", 차종: "모닝" },
-  { 번호: "0560", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "쏘렌토" },
-  { 번호: "0563", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "스파크" },
-  { 번호: "0585", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "소렌토" },
-  { 번호: "0627", 주차스티커: "확인필요", 색상: "검정계열", 차종: "디스커버리" },
-  { 번호: "0636", 주차스티커: "있음(황색)", 색상: "은_회색", 차종: "SM5" },
-  { 번호: "0661", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "SM6" },
-  { 번호: "0702", 주차스티커: "확인필요", 색상: "흰색", 차종: "k3" },
-  { 번호: "0757", 주차스티커: "확인필요", 색상: "흰색", 차종: "k3" },
-  { 번호: "0759", 주차스티커: "있음(황색)", 색상: "청색계열", 차종: "소나타" },
-  { 번호: "0767", 주차스티커: "없음", 색상: "은_회색", 차종: "Benz" },
-  { 번호: "0841", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "아이오닉" },
-  { 번호: "0892", 주차스티커: "있음(흰색)", 색상: "검정계열", 차종: "티볼리" },
-  { 번호: "0905", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "말리부" },
-  { 번호: "0982", 주차스티커: "있음(황색)", 색상: "은_회색", 차종: "투산" },
-  { 번호: "1045", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "G90" },
-  { 번호: "1130", 주차스티커: "있음(황색)", 색상: "검정계열", 차종: "투산" },
-  { 번호: "1138", 주차스티커: "확인필요", 색상: "흰색", 차종: "그랜저" },
-  { 번호: "1178", 주차스티커: "있음(황색)", 색상: "흰색", 차종: "넥소" },
-];
+const carData = [{번호:"0114",색상:"흰색",차종:"레이",주차스티커:"있음(황색)"}];
 
-const inputEl = document.getElementById("carInput");
-const statusEl = document.getElementById("status");
-const table = document.getElementById("resultTable");
-const tbody = table.querySelector("tbody");
-const btnCheck = document.getElementById("btnCheck");
-const btnVoice = document.getElementById("btnVoice");
+let recognition=null;
+let pendingSpeak=null;
+let ttsAllowUntil=0;
 
-let recognition = null;
-let pendingSpeak = null; // 텍스트를 보관하여 recognition.onend에서 읽어주도록 함
+function allowTTS(){
+  ttsAllowUntil=Date.now()+12000;
+}
 
-inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") checkCar(); });
-btnCheck.addEventListener("click", checkCar);
-btnVoice.addEventListener("click", startVoice);
+document.getElementById("btnVoice").addEventListener("click",()=>{allowTTS();startVoice();});
+document.getElementById("btnCheck").addEventListener("click",()=>{allowTTS();checkCar();});
 
-function checkCar() {
-  const num = inputEl.value.replace(/\D/g, "").padStart(4, "0");
-  if (!num || /^0+$/.test(num)) {
-    statusEl.textContent = "번호를 입력하거나 말씀해주세요.";
-    // 인식 중이면 멈추기
-    if (recognition) {
-      // pendingSpeak 초기화
-      pendingSpeak = "번호를 입력하거나 말씀해주세요.";
-      try { recognition.stop(); } catch(e) { recognition = null; speak(pendingSpeak); pendingSpeak = null; }
-    } else {
-      speak("번호를 입력하거나 말씀해주세요.");
-    }
+function speak(text){
+  if(!text) return;
+  if(Date.now()>ttsAllowUntil){
+    document.getElementById("status").textContent="🔇 스마트폰 정책으로 음성 출력이 차단됨 → 버튼을 한번 더 눌러주세요.";
     return;
   }
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="ko-KR";
+  speechSynthesis.speak(u);
+}
 
-  const found = carData.find(c => c.번호 === num);
-  if (found) {
-    showResult(found);
-    const text = `${num}번 차량은 ${found.색상} ${found.차종}, 주차스티커 ${found.주차스티커} 입니다.`;
-    // 만약 음성 인식이 활성화되어 있으면, 즉시 speak하지 말고 onend에서 처리
-    if (recognition) {
-      pendingSpeak = text;
-      try { recognition.stop(); } catch(e){ recognition=null; speak(text); pendingSpeak=null; }
-    } else {
-      speak(text);
-    }
-  } else {
-    statusEl.textContent = `🚫 ${num}번 차량은 등록되지 않았습니다.`;
-    table.style.display = "none";
-    const text = `${num}번 차량은 등록되지 않았습니다.`;
-    if (recognition) {
-      pendingSpeak = text;
-      try { recognition.stop(); } catch(e){ recognition=null; speak(text); pendingSpeak=null; }
-    } else {
-      speak(text);
-    }
+function checkCar(){
+  const num=document.getElementById("carInput").value.replace(/\D/g,"").padStart(4,"0");
+  let found=carData.find(c=>c.번호===num);
+  if(found){
+    pendingSpeak=`${num}번 차량 확인됨. ${found.색상} ${found.차종}`;
+    document.getElementById("status").textContent="확인됨";
+    document.querySelector("#resultTable tbody").innerHTML=
+      `<tr><td>${found.번호}</td><td>${found.색상}</td><td>${found.차종}</td><td>${found.주차스티커}</td></tr>`;
+    document.getElementById("resultTable").style.display="table";
+  }else{
+    pendingSpeak=`${num}번 차량은 등록되지 않았습니다.`;
+    document.getElementById("status").textContent=pendingSpeak;
+    document.getElementById("resultTable").style.display="none";
+  }
+  if(recognition){
+    try{recognition.stop();}catch(e){}
+  }else{
+    speak(pendingSpeak); pendingSpeak=null;
   }
 }
 
-function showResult(data) {
-  tbody.innerHTML = `
-    <tr>
-      <td>${data.번호}</td>
-      <td>${data.색상}</td>
-      <td>${data.차종}</td>
-      <td>${data.주차스티커}</td>
-    </tr>
-  `;
-  table.style.display = "table";
-  statusEl.textContent = "✅ 차량 정보가 확인되었습니다.";
-}
-
-// 안정적 음성 출력: 기존 음성 취소 후 재생
-function speak(text) {
-  if (!text) return;
-  try {
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-  } catch(e){}
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "ko-KR";
-  // 모바일에서 재생이 실패하면 onend/onerror로 알 수 있음
-  utter.onend = function(){ /* no-op */ };
-  utter.onerror = function(e){ console.error("TTS error", e); };
-  speechSynthesis.speak(utter);
-}
-
-// 음성 인식 시작
-function startVoice() {
-  if (recognition) return;
-  if (!("webkitSpeechRecognition" in window)) {
-    alert("이 브라우저는 음성인식을 지원하지 않습니다. 크롬 브라우저를 사용해주세요.");
-    return;
+function startVoice(){
+  if(!("webkitSpeechRecognition" in window)){
+    alert("크롬 브라우저 필요"); return;
   }
+  recognition=new webkitSpeechRecognition();
+  recognition.lang="ko-KR"; recognition.interimResults=false;
 
-  // 인식 객체 생성
-  recognition = new webkitSpeechRecognition();
-  recognition.lang = "ko-KR";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  statusEl.textContent = "🎙️ 번호를 말씀해주세요...";
-
-  recognition.onresult = function(event) {
-    const transcript = event.results[0][0].transcript;
-    const num = transcript.replace(/[^0-9]/g, "");
-    if (num.length >= 2 && num.length <= 4) {
-      // 바로 checkCar하지 말고 input 채우고 pendingSpeak에 결과를 맡긴 뒤 stop() 호출
-      inputEl.value = num;
-      // checkCar가 pendingSpeak 로직을 처리하게 함
-      checkCar();
-    } else {
-      statusEl.textContent = `⚠️ 인식된 내용("${transcript}")에서 번호 추출 실패. 다시 시도해주세요.`;
-      pendingSpeak = "번호를 정확히 말씀해주세요. 다시 시작합니다.";
-      try { recognition.stop(); } catch(e){ recognition = null; speak(pendingSpeak); pendingSpeak = null; }
-      // onend 에서 재시작 로직 처리
-    }
+  recognition.onresult=function(e){
+    let t=e.results[0][0].transcript;
+    let num=t.replace(/[^0-9]/g,"");
+    document.getElementById("carInput").value=num;
+    checkCar();
   };
 
-  recognition.onend = function() {
-    // recognition이 종료되면 pendingSpeak이 있으면 speak로 출력
-    // 인식이 예기치 않게 중단되었을 때는 재시작 시도를 하지 않고 사용자에게 안내
-    if (pendingSpeak) {
-      // 약간의 지연을 넣어, 마이크 자원이 완전히 해제된 뒤 재생하도록 함
-      const toSpeak = pendingSpeak;
-      pendingSpeak = null;
-      setTimeout(() => speak(toSpeak), 150);
+  recognition.onend=function(){
+    if(pendingSpeak){
+      setTimeout(()=>{speak(pendingSpeak); pendingSpeak=null;},150);
     }
-    // clean up
-    recognition = null;
-    statusEl.textContent = statusEl.textContent || "조회 버튼을 눌러 다시 시작해주세요.";
-  };
-
-  recognition.onerror = function(event) {
-    console.warn("recognition.onerror", event);
-    let errorMsg = "❌ 음성 인식 중 오류가 발생했습니다.";
-    switch(event.error) {
-      case 'not-allowed':
-        errorMsg = "❌ 마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용해주세요.";
-        break;
-      case 'no-speech':
-        errorMsg = "❌ 음성을 인식하지 못했습니다. 다시 말씀해주세요.";
-        break;
-      case 'audio-capture':
-        errorMsg = "❌ 마이크에 접근할 수 없습니다. 다른 앱이 마이크를 사용 중인지 확인해주세요.";
-        break;
-      case 'service-not-allowed':
-        errorMsg = "❌ 보안 문제로 서비스 사용이 거부되었습니다. HTTPS 환경에서 접속했는지 확인해주세요.";
-        break;
-      default:
-        errorMsg = `❌ 음성 인식 오류: ${event.error}`;
-    }
-    statusEl.textContent = errorMsg;
-    // 모바일에서 onerror 뒤에 자동 재시작은 피하는 편이 안전함.
-    pendingSpeak = errorMsg;
-    try { recognition.stop(); } catch(e){ recognition = null; speak(errorMsg); pendingSpeak = null; }
+    recognition=null;
   };
 
   recognition.start();
