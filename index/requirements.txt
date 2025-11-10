@@ -1,0 +1,5 @@
+speechrecognition
+pyaudio; platform_system != "Android"
+# Android(Pydroid3)에서는 pyaudio 대신 내부 마이크 바인딩을 사용하므로 생략 가능
+gTTS
+playsound==1.2.2
